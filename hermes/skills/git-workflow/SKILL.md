@@ -60,6 +60,15 @@ git config user.name "username"
 
 Detect from `gh auth status` or set manually.
 
+### Parallel subagent implementations on one branch
+
+When implementing multiple independent issues via `delegate_task` subagents:
+
+1. **Do not commit per-subagent.** Let each subagent modify files and run its own targeted tests, but instruct it NOT to commit or push.
+2. **Run a combined verification** after all subagents finish: `composer phpstan`, `composer pint`, and the union of affected test files — before any commit. Subagents may have introduced formatting drift in each other's files (e.g. Pint auto-fixing a file another agent touched), and only the combined pass proves the branch is coherent.
+3. **Single commit per batch.** `git add -A && git commit` once, with a message listing all issues addressed.
+4. **Update (do not recreate) the PR** with `gh pr edit` when the branch already has an open PR.
+
 ## Verification
 
 - `git status` shows no unexpected submodule entries.
