@@ -53,14 +53,14 @@
     "first_seen_at": null,
     "last_patched_at": "2026-09-24T09:54:37.495709+00:00",
     "last_reused_patch_generation": 6,
-    "last_used_at": "2026-09-24T14:42:25.977991+00:00",
-    "last_viewed_at": "2026-09-24T14:42:25.976866+00:00",
+    "last_used_at": "2026-09-24T20:41:19.559231+00:00",
+    "last_viewed_at": "2026-09-24T20:41:19.558072+00:00",
     "patch_count": 6,
     "patch_generation": 6,
     "pinned": false,
     "state": "active",
-    "use_count": 20,
-    "view_count": 20
+    "use_count": 22,
+    "view_count": 22
   },
   "github": {
     "archived_at": null,
@@ -161,14 +161,14 @@
     "first_seen_at": null,
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-09-24T14:44:17.605214+00:00",
-    "last_viewed_at": "2026-09-24T14:44:17.604128+00:00",
+    "last_used_at": "2026-09-24T20:41:39.691894+00:00",
+    "last_viewed_at": "2026-09-24T20:41:39.690721+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 10,
-    "view_count": 10
+    "use_count": 11,
+    "view_count": 11
   },
   "requesting-code-review": {
     "archived_at": null,
