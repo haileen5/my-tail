@@ -123,3 +123,4 @@ Done means:
 - **Tracking shows `beta`:** inspect `git branch -vv`; use explicit `HEAD:refs/heads/$CURRENT_BRANCH` refspecs.
 - **Canonical and fork beta differ:** compare the exact SHAs and commits; update the fork beta only after the canonical SHA is verified.
 - **Working tree already has changes:** record the diff first, determine whether it belongs to the synchronization, and preserve unrelated changes. Do not reset or stash them away without an explicit reason.
+- **Merge aborts on untracked files:** `git merge` refuses when an untracked working-tree path is tracked in the incoming ref. Do not `rm` reflexively. Compare the two versions first — `git show <target>:<file> | diff - <file>`; equal content means the untracked copy is redundant and can be removed, differing content is local work that must be copied outside the repo before the merge proceeds.
