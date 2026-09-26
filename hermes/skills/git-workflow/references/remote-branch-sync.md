@@ -23,6 +23,20 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 Identify the fork remote and canonical source from the URLs. If the canonical source is not already a remote, use its URL only for a temporary fetch; do not add or rewrite remotes.
 
+## Choose the path first
+
+After the canonical fetch (below), classify the branch before touching it:
+
+```bash
+git rev-list --left-right --count refs/sync/canonical-beta...HEAD
+git merge-base --is-ancestor HEAD refs/sync/canonical-beta
+```
+
+- **Behind only** (right count `0`, ancestor test exits `0`) → take the fast-forward path. No merge commit, no conflict resolution, no three-way semantic review.
+- **Diverged** (both counts non-zero) → take the full merge path in this file. Read the unique local commits first; they are work that must survive.
+
+Prefer `--ff-only` even when a fast-forward is expected: it fails loudly instead of silently manufacturing a merge commit, and the whole point of checking the ancestor relation is to know the outcome rather than hope for it.
+
 ## Verify canonical beta
 
 ```bash
@@ -42,6 +56,23 @@ git rev-parse refs/remotes/<fork>/beta
 ```
 
 Verify the fetched tracking ref equals the canonical temporary ref. If the fork's `beta` has a protection rule, stop and report the exact push rejection rather than changing its configuration.
+
+### Fast-forward path (behind only)
+
+```bash
+git merge --ff-only refs/sync/canonical-beta
+git push <fork> refs/sync/canonical-beta:refs/heads/beta
+git push <fork> "HEAD:refs/heads/$CURRENT_BRANCH"
+git ls-remote <fork> refs/heads/beta "refs/heads/$CURRENT_BRANCH"
+```
+
+Two pushes with explicit refspecs land both branches on the same SHA; `ls-remote` proves it. The temporary ref is a working aid, not a branch — remove it once both destinations are verified:
+
+```bash
+git update-ref -d refs/sync/canonical-beta
+```
+
+Run the project's own verification gates after the fast-forward even though nothing conflicted: incoming commits changed code, and a conflict-free merge is not a passing suite.
 
 ## Integrate the current branch safely
 

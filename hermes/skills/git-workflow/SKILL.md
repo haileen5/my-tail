@@ -87,7 +87,12 @@ When implementing multiple independent issues via `delegate_task` subagents:
 
 1. **Do not commit per-subagent.** Let each subagent modify files and run its own targeted tests, but instruct it NOT to commit or push.
 2. **Run a combined verification** after all subagents finish: `composer phpstan`, `composer pint`, and the union of affected test files — before any commit. Subagents may have introduced formatting drift in each other's files (e.g. Pint auto-fixing a file another agent touched), and only the combined pass proves the branch is coherent.
-3. **Single commit per batch.** `git add -A && git commit` once, with a message listing all issues addressed.
+3. **Single commit per batch — stage deliberately.** Run `git status` first:
+   `git add -A` is only safe when every untracked file is intended output.
+   Test/e2e runs routinely drop log artifacts into the repo root, and `-A`
+   sweeps them into the commit; otherwise use `git add -u` (tracked changes +
+   renames) and add genuinely new files by explicit path. Commit once, with a
+   message listing all issues addressed.
 4. **Update (do not recreate) the PR** with `gh pr edit` when the branch already has an open PR.
 
 ## Verification
