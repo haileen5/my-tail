@@ -40,6 +40,34 @@ Use this workflow when a working branch belongs to a server fork and the canonic
 
 **Conflict gate:** a clean syntax check is insufficient after a merge. Check variable names and test semantics against both sides, run the affected test files, and verify `git diff --check` plus a clean status before committing.
 
+### Landed-commit check — ask the canonical remote, not the fork
+
+Before deciding what a PR must carry, test every local commit against the
+**canonical** copy of the target branch:
+
+```bash
+git fetch <canonical>
+for c in $(git log --format=%h <canonical>/<target>..HEAD); do
+  git merge-base --is-ancestor "$c" <canonical>/<target> && echo "$c LANDED" || echo "$c NEW"
+done
+```
+
+The fork's copy of the target branch lags — a merged PR updates only the
+canonical repo — so an ancestor test against `<fork>/<target>` reports "not
+landed" for commits that already merged, and you then open a second PR whose
+diff contains nothing.
+
+### A merged PR is spent — open a new one
+
+When a branch's PR reads `state: MERGED` and its commit list stops short of your
+head: merge the canonical target into the working branch
+(`git merge <canonical>/<target> --no-edit`), push with an explicit refspec
+(`git push <fork> HEAD:refs/heads/<branch>`), then create a fresh PR for the
+commits still unlanded. A merge pulls in other people's commits too, so re-run
+the test gates after it — a green run from before the merge proves nothing about
+the merged tree. Confirm the new PR with a fresh read (`gh pr view <n> --json
+url,state,baseRefName,headRefName,commits`), not the creation output.
+
 See `references/remote-branch-sync.md` for the reusable command sequence and verification checklist.
 
 ## Pitfalls

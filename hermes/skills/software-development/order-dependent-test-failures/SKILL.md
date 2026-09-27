@@ -45,6 +45,20 @@ and each has been the actual answer.
 3. **Random fixture values colliding with the assertion.** A factory drawing a
    random name can generate the very value the test filters on, so the test's
    own row satisfies a filter it is asserting is absent.
+4. **Sequence values ahead of the table.** A rolled-back fixture leaves the
+   Postgres sequence advanced while the table is empty again, so a seeder that
+   inserts a catalog and a second seeder that references it by hardcoded id
+   write N+1..N+22 while the pivot still points at 1..22 — a foreign-key
+   violation that surfaces only when an earlier class consumed the sequence.
+   Reset **every** table the `setUp` seeds, not only the one whose error you
+   read: a setup that seeds two explicit-id catalogs plus an auto-increment
+   seeder fails on whichever table it forgot, so the failing relation changes
+   from run to run and looks like a different bug each time. Restart with
+   `SELECT setval('tbl_id_seq', COALESCE((SELECT MAX(id) FROM tbl), 1), false)`:
+   plain `setval(seq, 1)` uses `is_called = true`, so the next insert still gets
+   id 2 and the same off-by-one reappears one row later, while
+   `setval(seq, 0, false)` is rejected outright (a sequence value must be ≥ 1) —
+   the `COALESCE(MAX(id), 1)` form is the one that works empty or not.
 
 For each, the question is the same: does this value become *identical* between
 two tests, or *collide* with what the assertion expects?
@@ -96,6 +110,37 @@ for i in $(seq 1 10); do vendor/bin/pest --parallel || echo "RUN $i FAILED"; don
 
 Run both against the final code, not against an intermediate revision — a green
 result on superseded code is not evidence for what you are shipping.
+
+## Get a clean baseline before blaming your diff
+
+Dozens of failures across files your diff never touched are not yet evidence in
+either direction. Stash everything including untracked files, run the same suite
+on the clean tree, and diff the two failure sets:
+
+```bash
+git stash push -u -m wip
+composer test > /tmp/baseline.log 2>&1
+git stash pop
+```
+
+Only a failure present in your run and absent from the baseline is yours. Do the
+same in reverse when your own new test fails inside a batch but passed alone —
+that split points at shared state (checklist above), not at the assertion.
+
+Adding, renaming or deleting a test file reseeds PHPUnit's shuffle, so a green
+baseline next to a red diff-run can be pure order exposure. When the failure set
+covers files your diff never touched, run both trees under the same fixed
+`--order-by=random --random-order-seed=N` before theorising; a set that vanishes
+on an unchanged tree is exposure, and you report it that way — not as a bug you
+fixed. One green run of the same tree settles nothing either way.
+
+## Running the gates at suite scale
+
+A full suite outlives the 300s `execute_code` kernel cap, which kills the call
+and takes its session state with it. Launch long runs with
+`terminal(background=true)` writing to a log file, then block on
+`process_manage(action='wait', session_id=..., timeout=...)` — each wait clamps
+to ~180s, so poll until the process exits rather than trusting one long wait.
 
 ## Prove the fix with a test that asserts behaviour
 

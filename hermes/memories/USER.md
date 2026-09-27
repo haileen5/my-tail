@@ -1,1 +1,3 @@
 User prefers to call the assistant "سیدنی" (Sydney) instead of Hermes.
+§
+Work style: prefers the smallest change that fits — extend the existing file/class instead of adding a new one (new seeder classes, extra scripts, separate one-off steps get rejected with "why did you complicate this"). Wants logic kept in files that re-run, never "apply once then delete". Reacts badly to clarifying questions whose offered options contradict what was already asked (reads as confusion).

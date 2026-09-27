@@ -97,6 +97,33 @@ coverage annotation or use `covers()`.
 `= ANY('{}')` returns zero rows (correct behavior). If `$ids` could be empty,
 guard before the query or let the empty array naturally produce zero results.
 
+### A raw joined column inside `update()`
+
+Postgres gives a builder `update()` no FROM clause: a join compiles to
+`UPDATE t SET c = <expr> WHERE ctid IN (SELECT ctid FROM t JOIN …)`, so
+`DB::raw('other.col')` in the SET list names a relation that is out of scope →
+`relation "other" does not exist`. Two shapes that work:
+
+```php
+// correlated subquery in SET — the join stays, but only decides WHICH rows
+$n = DB::table('units')
+    ->join('units as p', 'p.id', '=', 'units.parent_id')
+    ->whereNull('units.region_id')
+    ->whereNotNull('p.region_id')
+    ->update(['region_id' => DB::raw(
+        '(select q.region_id from units q where q.id = units.parent_id)',
+    )]);
+
+// or plain SQL with FROM — returns the affected row count directly
+$n = DB::update('UPDATE units c SET region_id = p.region_id FROM units p
+    WHERE c.region_id IS NULL AND p.id = c.parent_id AND p.region_id IS NOT NULL');
+```
+
+Keep the join (or the `FROM`-equivalent predicate): it limits the write to rows
+whose source is non-null, and re-assigning a column to its own value still
+counts as an affected row, so a "repeat until nothing changes" loop built
+without it never terminates.
+
 ### A gate that checks zero files is not a gate
 
 `pint --dirty` (what `composer pint` runs) inspects only modified files — on a
@@ -179,9 +206,97 @@ $rows = $query->get()->take(20);
   `Model::whereIn()` call: the annotation is global — every `Model::whereIn()`
   chain repo-wide retypes and unmasks errors in files your diff never touched.
   Fix the chain in your own code instead.
+- Static magic callables on the model — `Model::firstOrCreate()`,
+  `updateOrCreate()`, `firstOrNew()` — go through `__callStatic` and report
+  `Call to an undefined static method`. `Builder` declares them, so prefix with
+  `query()`: `UnitType::query()->firstOrCreate(['name' => $name])` passes level
+  6 unchanged.
 - When the accepted shape is unclear, drop a throwaway class into an analyzed
   path, run the analyzer once, and read what it complains about — cheaper than
   theorizing about PHPDoc resolution. Delete the probe before committing.
+
+## Adding a Row to a Seeded Catalog
+
+Catalogs whose seeders comment each entry with its id, plus a pivot seeder that
+hardcodes those ids, are three ordered edits:
+
+1. **Append** the new value to the catalog seeder. Inserting mid-list shifts
+   every id below it and silently re-points every hardcoded pivot row at the
+   wrong value.
+2. Add the pivot rows only after checking the id the value will actually get —
+   a pivot pointing at an id the catalog never creates fails at seed time with
+   a foreign-key violation, which reads like a data bug rather than an ordering
+   one.
+3. **Backfill rows that already exist**, because any seeder that creates missing
+   rows on the fly (path-segment walkers, find-or-create importers) never
+   revisits rows it inserted before the catalog entry existed. Fold the backfill
+   into the seeder that already owns those rows — a private method called at the
+   end of `run()` — rather than writing a new `XSeeder` class: seeders are the
+   files that re-run, so a new class buys nothing but `DatabaseSeeder` wiring and
+   a second entry point to maintain for one UPDATE. It still repairs a live
+   database, because `php artisan db:seed --class=<that existing seeder>` re-runs
+   it cheaply (its own row-skipping skips the heavy part); `firstOrCreate` for
+   the catalog value keeps repeated runs from duplicating it.
+   Do not offer "apply it once and delete the code" as an alternative: a data
+   rule that only ran once is invisible to the next fresh seed.
+
+4. **Prove the catalog covers every reference before deleting lazy creation.**
+   When the rows currently created on the fly are moving into the catalog
+   seeder, resolve the import data against the catalog FIRST: a short checker
+   (eval the catalog array, walk each record's path matching name-within-parent)
+   prints the exact segments a fresh seed would fail on. Add everything it
+   reports in the same change — the moment the walker's create branch is gone,
+   an unresolved segment changes from "silently created with no type/region" to
+   a crashed seeder, and the checker is what turns a hunch into a list.
+
+Verify on the live database afterwards with two counts: rows that received the
+new value, and rows inside the target scope still missing it.
+
+For the full pre-commit gate (declared-vs-live diff, FK orphans, scope
+residuals, catalog parity, `.env` check) see
+`references/data-integrity-verification.md` — run it before any commit, push or
+PR that follows data work, and report the numbers rather than a verdict.
+
+### A rule that covers a whole branch of a tree
+
+When the rule is "this node and everything under it", do not recurse row by row
+in PHP: resolve the roots by name, take the subtree in one call, update once,
+and drive it from a map so the next rule is one array line.
+
+```php
+$rules = ['ستاد' => 'ستادی', 'فوریت' => 'فوریت']; // نام واحد => نوع واحد
+
+foreach ($rules as $unitName => $typeName) {
+    $rootIds = DB::table('units')->where('name', $unitName)->pluck('id')->all();
+    if ($rootIds === []) { continue; }
+
+    $typeId = UnitType::query()->firstOrCreate(['name' => $typeName])->id;
+
+    DB::table('units')
+        ->whereIn('id', Unit::descendantIds($rootIds))
+        ->update(['unit_type_id' => $typeId]);
+}
+```
+
+- `descendantIds()` includes the input ids and dedupes with `UNION`, so a
+  `parent_id` cycle terminates instead of hanging the connection — never
+  re-implement the walk with `UNION ALL`.
+- Match roots by **exact** name, not `LIKE '%…%'`: one data row per rule keeps
+  the update from reaching same-named units elsewhere that already carry a
+  different type.
+- Running the map after the rows are created makes one pass serve both a fresh
+  seed and a database seeded before the type existed.
+
+## Laravel Boost from the CLI
+
+When no MCP transport is up, `php scripts/boost_tool.php <tool> '<json>'` bridges
+the same tools:
+
+- Argument key for queries is `query`, not `sql` — `"sql": "..."` is rejected
+  with `Please pass a valid query`.
+- `DatabaseQuery` is read-only (SELECT/SHOW/EXPLAIN/DESCRIBE). Writes go through
+  `php artisan tinker --execute '...'` — single-quoted so the shell does not
+  expand `$` or `!`.
 
 ## Changing the Shape of an Export or Report
 
