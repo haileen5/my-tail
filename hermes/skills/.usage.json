@@ -68,15 +68,15 @@
     "created_by": "agent",
     "first_seen_at": null,
     "last_patched_at": "2026-09-27T10:40:43.128542+00:00",
-    "last_reused_patch_generation": 13,
-    "last_used_at": "2026-09-27T10:39:44.655698+00:00",
-    "last_viewed_at": "2026-09-27T10:39:44.653423+00:00",
+    "last_reused_patch_generation": 14,
+    "last_used_at": "2026-09-29T07:21:42.827180+00:00",
+    "last_viewed_at": "2026-09-29T07:21:42.825955+00:00",
     "patch_count": 14,
     "patch_generation": 14,
     "pinned": false,
     "state": "active",
-    "use_count": 38,
-    "view_count": 38
+    "use_count": 39,
+    "view_count": 39
   },
   "github": {
     "archived_at": null,
