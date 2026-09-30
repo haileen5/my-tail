@@ -67,16 +67,16 @@
     "created_at": "2026-09-21T18:58:10.077603+00:00",
     "created_by": "agent",
     "first_seen_at": null,
-    "last_patched_at": "2026-09-27T10:40:43.128542+00:00",
-    "last_reused_patch_generation": 14,
-    "last_used_at": "2026-09-29T07:21:42.827180+00:00",
-    "last_viewed_at": "2026-09-29T07:21:42.825955+00:00",
-    "patch_count": 14,
-    "patch_generation": 14,
+    "last_patched_at": "2026-09-30T11:42:41.346761+00:00",
+    "last_reused_patch_generation": 25,
+    "last_used_at": "2026-09-30T11:42:24.201602+00:00",
+    "last_viewed_at": "2026-09-30T11:42:24.200310+00:00",
+    "patch_count": 26,
+    "patch_generation": 26,
     "pinned": false,
     "state": "active",
-    "use_count": 39,
-    "view_count": 39
+    "use_count": 42,
+    "view_count": 42
   },
   "github": {
     "archived_at": null,
@@ -304,14 +304,14 @@
     "first_seen_at": null,
     "last_patched_at": null,
     "last_reused_patch_generation": 0,
-    "last_used_at": "2026-09-26T11:21:56.152407+00:00",
-    "last_viewed_at": "2026-09-26T11:21:56.151529+00:00",
+    "last_used_at": "2026-09-30T10:03:39.535235+00:00",
+    "last_viewed_at": "2026-09-30T10:03:39.534153+00:00",
     "patch_count": 0,
     "patch_generation": 0,
     "pinned": false,
     "state": "active",
-    "use_count": 3,
-    "view_count": 3
+    "use_count": 4,
+    "view_count": 4
   },
   "systematic-debugging": {
     "archived_at": null,

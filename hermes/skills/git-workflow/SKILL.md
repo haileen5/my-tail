@@ -22,6 +22,7 @@ Pitfalls and procedures for everyday git operations that fall outside standard
 - Never assume a branch name — read it from `git branch --show-current`.
 - Never assume remote names mean what they sound like — inspect `git remote -v` and `git branch -vv`; determine the fork and canonical upstream from their URLs.
 - Preserve pre-existing working-tree changes during synchronization: compare them with the target ref before staging, and never discard them to make a merge succeed.
+- Resolving a conflict in a PR: the side whose fix is a superset AND already merged into the target wins. Keep neither habit nor symmetry — keeping the PR's own hunk reverts the newer work. The losing side's tests and docs are then re-aligned to the semantics that actually ship, not deleted wholesale.
 
 ## Multi-remote fork synchronization
 
@@ -69,6 +70,24 @@ the merged tree. Confirm the new PR with a fresh read (`gh pr view <n> --json
 url,state,baseRefName,headRefName,commits`), not the creation output.
 
 See `references/remote-branch-sync.md` for the reusable command sequence and verification checklist.
+
+### Resolving a conflicting open PR
+
+A PR turns `CONFLICTING` (`mergeStateStatus: DIRTY`) when newer work merged into
+the target after it branched. Work it in this order — full command sequence in
+`references/pr-conflict-resolution.md`:
+
+1. **Diagnose before editing.** `gh pr view <n> --json mergeable,mergeStateStatus,statusCheckRollup,files`, then list what merged since the PR's base (`git log --merges <merge-base>..<target>`). Read the PR body's own notes about competing PRs — authors often name the PR that will supersede them.
+2. **Decide per file, semantically: whose version ships?** If a merged PR already contains a superset fix for the same bug, the PR's own hunk is deadweight — taking it would revert the newer work. Take the target's version (`git checkout --theirs <file>`), then prove it: `git diff <target> -- <file>` must be empty. Keep derived files consistent with that choice — a baseline/config/error-count file keyed to the dropped code must match the target too, or static analysis breaks on the merged tree.
+3. **Re-align tests and docs to the semantics that actually ship.** Assertions that still hold stay; assertions that encode the superseded behavior get rewritten to the new one; stale prose claims (in the PR's own docblocks or gotcha rows) get fixed in the same commit. Keeping them ships failing tests and false docs.
+4. **Re-run every gate on the merged tree** — the target's coverage of the same feature plus the PR's own tests, formatter, and static analysis. A green run from before the merge proves nothing about the merged tree.
+5. **Push to the PR head only if permitted, and check before assuming.** `maintainerCanModify: true` grants push only to base-repo collaborators; test with `gh api repos/<head-fork> --jq .permissions`. With `push:false`, fall back: push the same commits to your own fork, open a replacement PR that says `Replaces #<n>`, and comment on the original — splitting comment from close, because `gh pr close --comment` fails without close permission while `gh pr comment` succeeds for any authenticated account. Leave closing to the user and say so.
+
+**Pitfall:** PR heads are fetched from the repo that *received* the PR: `git fetch <canonical> pull/<n>/head:<local>`. The same ref does not exist on the fork (`fatal: couldn't find remote ref`).
+
+**Pitfall:** resolve conflicts in a `git worktree` to leave the main clone's branch untouched — but a worktree carries no untracked files (.env, vendor, node_modules), so tests can only run after removing the worktree and checking the branch out in the main clone (one worktree per branch).
+
+**Pitfall:** piping a command through a truncating filter reports the *filter's* exit status, so a rejected push looks like exit 0. Read the push output itself (or take the first element of `$PIPESTATUS`) before reporting success.
 
 ## Pitfalls
 
