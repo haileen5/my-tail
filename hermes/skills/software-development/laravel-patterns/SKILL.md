@@ -316,6 +316,50 @@ or worse, still pass against the wrong field.
   repeating it is both wrong and defeats filtering, since one parent value
   swallows every row beneath it.
 
+## Sortable List Pages (table header sorting)
+
+### The requested `ORDER BY` must be the FIRST key, not a tie-break
+
+`orderBy()` appends — it never replaces and never de-duplicates — so a list query
+that starts from a default-order scope and then applies the user's column yields
+`ORDER BY sort_order, id, name desc`: the clicked column runs only among rows
+already tied on the earlier keys, i.e. **every header sort is a silent no-op**.
+Postgres does not collapse the repeated `id` either, so `ORDER BY id asc, id desc`
+keeps the first direction and a descending click on the key column does nothing.
+
+- Build the list query WITHOUT the default-order scope, apply the requested
+  column as the first `orderBy`, then add the default scope's columns back as an
+  explicit tie-break (`if ($column !== 'id') { $query->orderBy('id'); }` — skip
+  the key being sorted, or its duplicate cancels one direction).
+- Keep the component's default `sortBy` equal to the scope's first key, so the
+  untouched page renders in exactly the order it did before.
+- Diagnosis before fix: print `toSql()` on the real chain — the ORDER BY clause
+  shows the precedence directly, and a UI "sort does nothing" is a server-side
+  ordering problem, not a Livewire event problem. In MaryUI the header click is
+  just `$wire.set('sortBy', {column, direction})` (sortable defaults to true once
+  `sortBy` is non-empty), so the property does update; only the SQL is wrong.
+
+### Prove a sort with fixtures where the two orders disagree
+
+A sort test whose fixture is ordered the same way by both the default and the
+requested key passes against the broken query. Give `sort_order` an order that
+contradicts the key under test (ascending `sort_order` vs. descending `id`) so the
+wrong query can only produce one answer and the right query the other, then assert
+the row ids:
+
+```php
+$ids = Livewire::test('it.zabbix-devices')
+    ->set('sortBy', ['column' => 'id', 'direction' => 'desc'])
+    ->viewData('devices')   // data returned by the component's with()
+    ->pluck('id')->all();
+expect($ids)->toBe([$newer->id, $older->id]);
+```
+
+`Testable::viewData()` reads the data the component passes to its view (the
+`with()` array), which is otherwise unreachable from a test — `get()` only reads
+public properties. Pin a second test on the DEFAULT order as well, so dropping
+the default scope later cannot silently change the untouched page.
+
 ## Laravel Testing Patterns
 
 ### Associative array destructuring from traits

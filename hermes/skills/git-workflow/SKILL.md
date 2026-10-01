@@ -37,6 +37,10 @@ Use this workflow when a working branch belongs to a server fork and the canonic
 
 **Pitfall:** branch tracking can point to a different branch, such as `branch.<name>.merge=refs/heads/beta`; `git status` may therefore report the current branch against `beta` even when a same-named remote branch exists. Use explicit refspecs and inspect `git branch -vv`.
 
+**Pitfall:** a fast-forward aborts with `Your local changes would be overwritten by merge` when a file YOU already modified locally is also changed by the incoming ref (lockfiles are the common case). Diff first (`git diff -- <file>` vs `git show <target>:<file>`) to see whether the local edit is real work or tool churn, then `git stash push -m '<what it is>' -- <file>` for exactly that path, run the sync, and `git stash pop` after your own push. Never drop the local edit to let the merge succeed — it is the standing preserve-working-tree rule, and a lockfile churn diff restored afterwards costs nothing.
+
+**Ordering:** do the sync BEFORE committing your own work, not after. A fast-forward needs `HEAD` to be an ancestor of the target, so a local commit ahead of the sync forces a merge commit where a plain ff would have done; uncommitted changes ride through a ff untouched as long as no file collides (handle collisions with the stash above).
+
 **Pitfall:** a merge can abort with `untracked working tree files would be overwritten by merge` when the working tree holds a file the incoming ref has now tracked (agent-seeded config, local scratch, a file the target branch just added). Diff the untracked file against the incoming version FIRST, then remove it — `git diff --no-index <file> <(git show <target>:<file>)`; if the contents match, deleting the untracked copy loses nothing. If they differ, the untracked copy is local work: back it up outside the repo before the merge, never silently discard it.
 
 **Conflict gate:** a clean syntax check is insufficient after a merge. Check variable names and test semantics against both sides, run the affected test files, and verify `git diff --check` plus a clean status before committing.
